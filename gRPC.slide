@@ -1,0 +1,299 @@
+Protobuf & gRPC
+
+Deepak Gunjetti
+Software Architect @ Andcloud
+deepak@andcloud.io
+@dgunjetti
+
+* gRPC 
+
+- gRPC is a modern open source high performance RPC framework used to connect services.
+
+- It has pluggable support for load balancing, tracing, health checking and authentication.
+
+- Uses protobuf as underlying message interchange format.
+
+* gRPC..
+
+- client application can directly call methods on a server application on a different machine as if it was a local object.
+
+- gRPC is based around the idea of defining a service, specifying the methods that can be called remotely with their parameters and return types. 
+
+-  Server implements this interface and runs a gRPC server to handle client calls. 
+
+-  Client has a stub that provides the same methods as the server.
+
+* gRPC..
+
+.image img/grpc-1.jpg
+
+* gRPC..
+
+- gRPC clients and servers can be written in any of gRPC’s supported languages. 
+
+- for example, gRPC server in Java with clients in Go, Python, or Ruby. 
+
+* Protocol Buffers
+
+- Mechanism for serializing structured data
+
+- Structure of data is defined in .proto file.
+
+- Data is structured as messages.
+
+- messages contains fields.
+
+* Install proto package
+
+    go get -u github.com/golang/protobuf/protoc-gen-go
+    brew install grpc protobuf
+
+- The compiler plugin protoc-gen-go will be installed in $GOBIN, defaulting to $GOPATH/bin. It must be in your $PATH for the protocol compiler protoc to find it.
+
+- This software has two parts: 
+
+- 'protocol compiler plugin' that generates Go source files that, once compiled, can access and manage protocol buffers 
+
+- library that implements run-time support for encoding (marshaling), decoding (unmarshaling), and accessing protocol buffers.
+
+* Protoc
+
+- protocol buffer compiler creates a class that implements automatic encoding and parsing of the protocol buffer data with an efficient binary format.
+
+- The generated class provides getters and setters for the fields that make up a protocol buffer and takes care of the details of reading and writing the protocol buffer as a unit.
+
+* Protobuf example
+
+- src/intro/addressbook.proto
+
+- you add a message for each data structure you want to serialize.
+
+- specify a name and a type for each field in the message.
+
+- The .proto file starts with a package declaration, which helps to prevent naming conflicts between different projects.
+
+- package name is used as the Go package.
+
+* Protobuf example...
+
+- A message is just an aggregate containing a set of typed fields. 
+
+- data types are available as field types, including bool, int32, float, double, and string.
+
+- you can use other message types as field types.
+
+- You can even define message types nested inside other messages
+
+- You can also define enum types if you want one of your fields to have one of a predefined list of values
+
+* Protobuf example...
+
+- The " = 1", " = 2" markers on each element identify the unique "tag" that field uses in the binary encoding.
+
+- Tag numbers 1-15 require one less byte to encode, use these tags for the commonly used or repeated elements.
+
+- tags 16 and higher for less-commonly used optional elements.
+
+* Protobuf example...
+
+- Each element in a repeated field requires re-encoding the tag number, so repeated fields are particularly good candidates for this optimization.
+
+- If a field value isn't set, a default value is used: zero for numeric types, the empty string for strings, false for bools.
+
+- If a field is repeated, the field may be repeated any number of times (including zero). The order of the repeated values will be preserved in the protocol buffer. Think of repeated fields as dynamically sized arrays.
+
+* Compiling  protocol buffers
+
+- Run the protocol buffer compiler protoc on your .proto to generate the classes you'll need to read and write AddressBook.
+
+- Run the compiler, specifying the source directory (where your application's source code lives – the current directory is used if you don't provide a value), the destination directory (where you want the generated code to go; often the same as $SRC_DIR), and the path to your .proto. 
+
+    protoc -I=$SRC_DIR --go_out=$DST_DIR $SRC_DIR/addressbook.proto
+
+    protoc --go_out=. *.proto
+
+- Because you want Go classes, you use the --go_out option – similar options are provided for other supported languages.
+
+- generates addressbook.pb.go
+
+* Generated types
+
+- Generating addressbook.pb.go gives 
+
+- An AddressBook structure with a People field.
+
+- A Person structure with fields for Name, Id, Email and Phones.
+
+- A Person_PhoneNumber structure, with fields for Number and Type.
+
+- The type Person_PhoneType and a value defined for each value in the Person.PhoneType enum.
+
+* create an instance of Person
+
+    p := pb.Person{
+        Id:    1234,
+        Name:  "John Doe",
+        Email: "jdoe@example.com",
+        Phones: []*pb.Person_PhoneNumber{
+                {Number: "555-4321", Type: pb.Person_HOME},
+        },
+    }
+
+* Writing a Message
+
+- you use the proto library's Marshal function to serialize your protocol buffer data.
+
+- A pointer to a protocol buffer message's struct implements the proto.Message interface. 
+
+- Calling proto.Marshal returns the protocol buffer, encoded in its wire format.
+
+* Writing a Message
+
+.code src/intro/add_person/add_person.go /START1 OMIT/,/END1 OMIT/
+
+.code src/intro/add_person/add_person.go /START2 OMIT/,/END2 OMIT/
+
+* Reading a Message
+
+- Calling Unmarshal function parses the data in buf as a protocol buffer and places the result in pb.
+
+.code src/intro/list_person/list_person.go /START OMIT/,/END OMIT/
+
+* gRPC
+
+- gRPC is based around the idea of defining a service, specifying the methods that can be called remotely with their parameters and return types. 
+
+- By default, gRPC uses protocol buffers as the Interface Definition Language (IDL) for describing both the service interface and the structure of the payload messages.
+
+* gRPC
+
+.code src/grpc01/intro/proto/hello.proto /START OMIT/,/END OMIT/
+
+* gRPC
+
+- gRPC lets you define four kinds of service method:
+
+* unary RPCs
+
+- Unary RPCs where the client sends a single request to the server and gets a single response back, just like a normal function call.
+
+    rpc SayHello(HelloRequest) returns (HelloResponse){
+    }
+
+* Unary RPCs
+
+- Once the client calls the method on the stub/client object, the server is notified that the RPC has been invoked with the client’s metadata for this call, the method name, and the specified deadline if applicable.
+
+- The server can then either send back its own initial metadata (which must be sent before any response) straight away, or wait for the client’s request message - which happens first is application-specific.
+
+- Once the server has the client’s request message, it does whatever work is necessary to create and populate its response. The response is then returned (if successful) to the client together with status details (status code and optional status message) and optional trailing metadata.
+
+- If the status is OK, the client then gets the response, which completes the call on the client side.
+
+
+* Server streaming RPCs
+
+- Server streaming RPCs where the client sends a request to the server and gets a stream to read a sequence of messages back. The client reads from the returned stream until there are no more messages. gRPC guarantees message ordering within an individual RPC call.
+
+    rpc LotsOfReplies(HelloRequest) returns (stream HelloResponse){
+    }
+
+- After sending back all its responses, the server’s status details (status code and optional status message) and optional trailing metadata are sent back to complete on the server side. The client completes once it has all the server’s responses.
+
+* Client streaming RPCs
+
+- Client streaming RPCs where the client writes a sequence of messages and sends them to the server, again using a provided stream. Once the client has finished writing the messages, it waits for the server to read them and return its response. Again gRPC guarantees message ordering within an individual RPC call.
+
+    rpc LotsOfGreetings(stream HelloRequest) returns (HelloResponse) {
+    }
+
+-  The server sends back a single response, typically but not necessarily after it has received all the client’s requests, along with its status details and optional trailing metadata.
+ 
+* Bidirectional RPCs 
+
+- Bidirectional streaming RPCs where both sides send a sequence of messages using a read-write stream. The two streams operate independently, so clients and servers can read and write in whatever order they like: for example, the server could wait to receive all the client messages before writing its responses, or it could alternately read a message then write a message, or some other combination of reads and writes. The order of messages in each stream is preserved.
+
+    rpc BidiHello(stream HelloRequest) returns (stream HelloResponse){
+    }
+
+* Using the API surface
+
+- Starting from a service definition in a .proto file, gRPC provides protocol buffer compiler plugins that generate client- and server-side code. gRPC users typically call these APIs on the client side and implement the corresponding API on the server side.
+
+- On the server side, the server implements the methods declared by the service and runs a gRPC server to handle client calls. The gRPC infrastructure decodes incoming requests, executes service methods, and encodes service responses.
+
+- On the client side, the client has a local object known as stub that implements the same methods as the service. The client can then just call those methods on the local object, wrapping the parameters for the call in the appropriate protocol buffer message type - gRPC looks after sending the request(s) to the server and returning the server’s protocol buffer response(s).
+
+* Synchronous vs. asynchronous
+
+- Synchronous RPC calls that block until a response arrives from the server
+
+
+* Deadlines/Timeouts
+
+- gRPC allows clients to specify how long they are willing to wait for an RPC to complete before the RPC is terminated with the error DEADLINE_EXCEEDED. 
+
+- On the server side, the server can query to see if a particular RPC has timed out, or how much time is left to complete the RPC.
+
+* RPC termination
+
+- In gRPC, both the client and server make independent and local determinations of the success of the call, and their conclusions may not match. 
+
+- for example, you could have an RPC that finishes successfully on the server side (“I have sent all my responses!”) but fails on the client side (“The responses arrived after my deadline!“). 
+
+- It’s also possible for a server to decide to complete before a client has sent all its requests.
+
+
+* Cancelling RPCs
+
+- Either the client or the server can cancel an RPC at any time. 
+
+- A cancellation terminates the RPC immediately so that no further work is done. 
+
+- It is not an “undo”: changes made before the cancellation will not be rolled back.
+
+* Metadata
+
+- Metadata is information about a particular RPC call (such as authentication details) in the form of a list of key-value pairs, where the keys are strings and the values are typically strings (but can be binary data). 
+
+- Metadata is opaque to gRPC itself - it lets the client provide information associated with the call to the server and vice versa.
+
+* Install gRPC 
+
+    go get -u google.golang.org/grpc
+
+* Build the example
+
+    cd $GOPATH/src/google.golang.org/grpc/examples/helloworld
+
+- gRPC services are defined in a .proto file.
+
+- The .pb.go file is generated by compiling the .proto file using the protocol compiler: protoc.
+
+    protoc -I helloworld/ helloworld/helloworld.proto --go_out=plugins=grpc:helloworld
+
+* Build the example..
+
+- helloworld.pb.go file contains:
+
+- Generated client and server code.
+
+- Code for populating, serializing, and retrieving our HelloRequest and HelloReply message types.
+
+* gRPC server code 
+
+    $GOPATH/google.golang.org/grpc/examples/helloworld/greeter_server/main.go
+
+* gRPC client code 
+
+    $GOPATH/google.golang.org/grpc/examples/helloworld/greeter_client/main.go
+
+* Run
+
+    $ go run greeter_server/main.go
+
+    $ go run greeter_client/main.go
+    Greeting: Hello world
+ 
+
+
